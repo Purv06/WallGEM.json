@@ -1,6 +1,27 @@
 [
   {
     "author": "Raj Arya",
+    "url": "https://raw.githubusercontent.com/Purv06/WallGEM.json/main/Flower%20%26%20Leaves/Emerald_Canopy.png",
+    "thumbnail": "https://raw.githubusercontent.com/Purv06/WallGEM.json/refs/heads/main/Thumbnail/Flowers___Leaves_Emerald_Canopy.jpg",
+    "name": "Emerald Canopy",
+    "collections": "Flowers & Leaves"
+  },
+  {
+    "author": "Raj Arya",
+    "url": "https://raw.githubusercontent.com/Purv06/WallGEM.json/main/Flower%20%26%20Leaves/Botanical_Bloom.png",
+    "thumbnail": "https://raw.githubusercontent.com/Purv06/WallGEM.json/refs/heads/main/Thumbnail/Flowers___Leaves_Botanical_Bloom.jpg",
+    "name": "Botanical Bloom",
+    "collections": "Flowers & Leaves"
+  },
+  {
+    "author": "Raj Arya",
+    "url": "https://raw.githubusercontent.com/Purv06/WallGEM.json/main/Flower%20%26%20Leaves/Verdant_Whisper.png",
+    "thumbnail": "https://raw.githubusercontent.com/Purv06/WallGEM.json/refs/heads/main/Thumbnail/Flowers___Leaves_Verdant_Whisper.jpg",
+    "name": "Verdant Whisper",
+    "collections": "Flowers & Leaves"
+  },
+  {
+    "author": "Raj Arya",
     "url": "https://raw.githubusercontent.com/Purv06/WallGEM.json/main/Setup%20Special/28807555.jpg",
     "thumbnail": "https://raw.githubusercontent.com/Purv06/WallGEM.json/refs/heads/main/Thumbnail/Setup_Special_28807555.jpg",
     "name": "Vector Matrix",
