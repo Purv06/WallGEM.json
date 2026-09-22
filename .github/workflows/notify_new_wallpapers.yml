@@ -1,0 +1,40 @@
+name: Notify New Wallpapers on Push
+
+on:
+  push:
+    paths:
+      - 'WallGEM'
+      - 'WallGEM.json'
+      - 'WallGEM_Dataset/**'
+      - 'Thumbnail/**'
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  notify-users:
+    name: Broadcast FCM Notification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install google-auth requests
+
+      - name: Run FCM Notification Broadcaster
+        env:
+          FIREBASE_PROJECT_ID: 'wallgem-6cb74'
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          python .github/scripts/notify_fcm.py
