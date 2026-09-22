@@ -1,0 +1,8 @@
+{
+  "fixed_title": "",
+  "fixed_body": "",
+  "title_single": "New Wallpaper Added: {name} \ud83c\udfa8",
+  "body_single": "A fresh {collection} wallpaper is now available. Tap to apply!",
+  "title_multiple": "{count} New Wallpapers Added! \ud83c\udfa8",
+  "body_multiple": "Fresh wallpapers including '{name}' in {collection} are live. Check them out!"
+}

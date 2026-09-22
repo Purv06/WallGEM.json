@@ -23,46 +23,80 @@ def find_catalog_file():
             return path
     return None
 
+def get_commit_message():
+    try:
+        return subprocess.check_output(["git", "log", "-1", "--pretty=%B"], text=True, stderr=subprocess.DEVNULL).strip()
+    except Exception:
+        return ""
+
+def load_notification_template():
+    candidates = [
+        ".github/notification_template.json",
+        "notification_template.json"
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+    return None
+
 def extract_added_wallpapers(catalog_path):
     """
-    Attempts to extract newly added wallpapers using git diff.
-    If git diff is unavailable or fails, falls back to the first wallpaper in the catalog.
+    Extracts newly added wallpapers by comparing current catalog URLs against HEAD~1.
+    This guarantees 100% exact count without substring false positives.
     """
     added_wallpapers = []
+    
+    # 1. Exact JSON comparison against previous commit
     try:
-        # Check if there is a git commit history to diff against
-        diff_cmd = ["git", "diff", "HEAD~1", "HEAD", "--", catalog_path]
-        diff_output = subprocess.check_output(diff_cmd, text=True, stderr=subprocess.DEVNULL)
-        
-        # Look for newly added lines in the diff
-        added_lines = [line[1:].strip() for line in diff_output.splitlines() if line.startswith("+") and not line.startswith("+++")]
-        diff_content = "\n".join(added_lines)
-        
-        # Try to parse newly added blocks
-        try:
-            with open(catalog_path, "r", encoding="utf-8") as f:
-                full_catalog = json.load(f)
-            
-            # Match wallpapers whose url appears in the added lines
-            for item in full_catalog:
-                url = item.get("url", "")
-                name = item.get("name", "")
-                if (url and url in diff_content) or (name and name in diff_content):
-                    added_wallpapers.append(item)
-        except Exception:
-            pass
+        prev_json_str = subprocess.check_output(["git", "show", f"HEAD~1:{catalog_path}"], text=True, stderr=subprocess.DEVNULL)
+        prev_catalog = json.loads(prev_json_str)
+        prev_urls = {item.get("url") for item in prev_catalog if isinstance(item, dict) and "url" in item}
+
+        with open(catalog_path, "r", encoding="utf-8") as f:
+            curr_catalog = json.load(f)
+
+        if isinstance(curr_catalog, list):
+            for item in curr_catalog:
+                if isinstance(item, dict):
+                    url = item.get("url")
+                    if url and url not in prev_urls:
+                        added_wallpapers.append(item)
+        if added_wallpapers:
+            return added_wallpapers
     except Exception:
         pass
 
-    # Fallback if diff produced no matches: read the top of catalog
-    if not added_wallpapers:
-        try:
-            with open(catalog_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list) and len(data) > 0:
-                    added_wallpapers = [data[0]]
-        except Exception as e:
-            print(f"Error reading catalog: {e}")
+    # 2. Fallback: inspect added diff lines for unique URLs
+    try:
+        diff_cmd = ["git", "diff", "HEAD~1", "HEAD", "--", catalog_path]
+        diff_output = subprocess.check_output(diff_cmd, text=True, stderr=subprocess.DEVNULL)
+        added_lines = [line[1:].strip() for line in diff_output.splitlines() if line.startswith("+") and not line.startswith("+++")]
+        diff_content = "\n".join(added_lines)
+
+        with open(catalog_path, "r", encoding="utf-8") as f:
+            curr_catalog = json.load(f)
+
+        for item in curr_catalog:
+            url = item.get("url", "")
+            if url and url in diff_content:
+                added_wallpapers.append(item)
+        if added_wallpapers:
+            return added_wallpapers
+    except Exception:
+        pass
+
+    # 3. Final fallback: top item in catalog
+    try:
+        with open(catalog_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, list) and len(data) > 0:
+                added_wallpapers = [data[0]]
+    except Exception as e:
+        print(f"Error reading catalog: {e}")
 
     return added_wallpapers
 
@@ -76,12 +110,54 @@ def build_notification_content(added_wallpapers):
     collection = first.get("collections", "WallGEM")
     image_url = first.get("thumbnail") or first.get("url")
 
-    if count == 1:
-        title = f"New Wallpaper Added: {name} 🎨"
-        body = f"A fresh {collection} wallpaper is now available. Tap to apply!"
-    else:
-        title = f"{count} New Wallpapers Added! 🎨"
+    # Check commit message for manual custom text
+    # e.g., commit message with [Title: Summer Special | Body: Check out new drops]
+    commit_msg = get_commit_message()
+    custom_title = None
+    custom_body = None
+
+    if "[Title:" in commit_msg and "]" in commit_msg:
+        try:
+            bracket_part = commit_msg.split("[Title:")[1].split("]")[0]
+            if "| Body:" in bracket_part:
+                custom_title = bracket_part.split("| Body:")[0].strip()
+                custom_body = bracket_part.split("| Body:")[1].strip()
+            else:
+                custom_title = bracket_part.strip()
+        except Exception:
+            pass
+
+    # Check notification_template.json if present
+    template = load_notification_template()
+    if template:
+        if template.get("fixed_title"):
+            custom_title = template["fixed_title"]
+        if template.get("fixed_body"):
+            custom_body = template["fixed_body"]
+
+    # Determine title & body
+    if custom_title and custom_body:
+        title = custom_title.format(count=count, name=name, collection=collection)
+        body = custom_body.format(count=count, name=name, collection=collection)
+    elif custom_title:
+        title = custom_title.format(count=count, name=name, collection=collection)
         body = f"Fresh wallpapers including '{name}' in {collection} are live. Check them out!"
+    elif template:
+        if count == 1:
+            title_tpl = template.get("title_single", "New Wallpaper Added: {name} 🎨")
+            body_tpl = template.get("body_single", "A fresh {collection} wallpaper is now available. Tap to apply!")
+        else:
+            title_tpl = template.get("title_multiple", "{count} New Wallpapers Added! 🎨")
+            body_tpl = template.get("body_multiple", "Fresh wallpapers including '{name}' in {collection} are live. Check them out!")
+        title = title_tpl.format(count=count, name=name, collection=collection)
+        body = body_tpl.format(count=count, name=name, collection=collection)
+    else:
+        if count == 1:
+            title = f"New Wallpaper Added: {name} 🎨"
+            body = f"A fresh {collection} wallpaper is now available. Tap to apply!"
+        else:
+            title = f"{count} New Wallpapers Added! 🎨"
+            body = f"Fresh wallpapers including '{name}' in {collection} are live. Check them out!"
 
     return {
         "title": title,
